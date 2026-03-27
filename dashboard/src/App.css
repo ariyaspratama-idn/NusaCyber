@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --cyan-500: #06b6d4;
+  --cyan-900: #164e63;
+}
+
+body {
+  margin: 0;
+  background-color: #020617;
+  color: white;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #164e63;
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Core Animations */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes reverse-spin {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+.animate-reverse-spin {
+  animation: reverse-spin 10s linear infinite;
+}
+
+/* Print Optimization */
+@media print {
+  header, .grid.grid-cols-1.lg\:grid-cols-12, .flex.gap-4, button {
+    display: none !important;
+  }
+  body { background: white !important; color: black !important; padding: 20px !important; }
+  #laporan-mudah { display: block !important; border: 1px solid #ddd !important; padding: 20px !important; }
+  .bg-[#0b1229], .bg-gradient-to-r { background: #f8fafc !important; border: 1px solid #ddd !important; }
+}

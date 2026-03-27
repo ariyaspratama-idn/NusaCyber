@@ -1,0 +1,9 @@
+node_modules
+.env
+.DS_Store
+tests/.temp-profiles
+dashboard/node_modules
+dashboard/dist
+package-lock.json
+yalc.lock
+.yalc
