@@ -344,12 +344,15 @@ export default function App() {
   useEffect(() => { const t = setTimeout(() => setBooting(false), 2200); return () => clearTimeout(t); }, []);
   useEffect(() => { if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight; }, [output]);
 
+  // Gunakan URL Backend Publik (misal dari Ngrok/Render) jika ada, jika tidak default ke localhost
+  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
   const runAudit = async () => {
     if (!url) { alert('Masukkan URL target!'); return; }
     setLoading(true); setReport(null); setTab('terminal');
     setOutput('🚀 Menghubungkan ke audit engine...\n   Mohon tunggu, proses ini memerlukan 1-3 menit.\n');
     try {
-      const res = await fetch('http://localhost:3001/api/run-test', {
+      const res = await fetch(`${API_BASE}/api/run-test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ targetUrl: url, testType: 'ultimate' }),
