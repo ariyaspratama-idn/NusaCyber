@@ -331,11 +331,10 @@ function Report({ report, targetUrl }) {
 // ─── Main App ──────────────────────────────────────────────────
 export default function App() {
   const [url, setUrl]           = useState('');
+  const [backendUrl, setBackendUrl] = useState('http://localhost:3001');
   const [loading, setLoading]   = useState(false);
   const [output, setOutput]     = useState('');
   
-
-
   const [report, setReport]     = useState(null);
   const [tab, setTab]           = useState('terminal');
   const [booting, setBooting]   = useState(true);
@@ -344,15 +343,12 @@ export default function App() {
   useEffect(() => { const t = setTimeout(() => setBooting(false), 2200); return () => clearTimeout(t); }, []);
   useEffect(() => { if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight; }, [output]);
 
-  // Gunakan URL Backend Publik (misal dari Ngrok/Render) jika ada, jika tidak default ke localhost
-  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-
   const runAudit = async () => {
     if (!url) { alert('Masukkan URL target!'); return; }
     setLoading(true); setReport(null); setTab('terminal');
     setOutput('🚀 Menghubungkan ke audit engine...\n   Mohon tunggu, proses ini memerlukan 1-3 menit.\n');
     try {
-      const res = await fetch(`${API_BASE}/api/run-test`, {
+      const res = await fetch(`${backendUrl}/api/run-test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ targetUrl: url, testType: 'ultimate' }),
@@ -403,10 +399,19 @@ export default function App() {
             <p className="text-gray-400 text-sm">Lighthouse · Axe-core · Playwright · k6 — detail penuh, langsung bisa diperbaiki</p>
           </div>
           <div className="max-w-3xl mx-auto space-y-4">
-            <input type="url" value={url} onChange={e => setUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && runAudit()}
-              className="w-full bg-black/60 border-2 border-cyan-950 focus:border-cyan-500 rounded-2xl px-8 py-5 text-lg text-cyan-100 placeholder-cyan-950 outline-none transition-all font-mono text-center"
-              placeholder="https://website-anda.com"
-            />
+            <div className="relative">
+              <input type="url" value={url} onChange={e => setUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && runAudit()}
+                className="w-full bg-black/60 border-2 border-cyan-950 focus:border-cyan-500 rounded-2xl px-8 py-5 text-lg text-cyan-100 placeholder-cyan-950 outline-none transition-all font-mono text-center"
+                placeholder="https://website-anda.com"
+              />
+              <div className="flex items-center justify-center gap-2 mt-4">
+                <span className="text-[10px] font-black text-gray-700 uppercase tracking-widest">Auditor Engine:</span>
+                <input type="text" value={backendUrl} onChange={e => setBackendUrl(e.target.value)}
+                  className="bg-transparent border-b border-cyan-500/10 hover:border-cyan-500/40 text-cyan-500/50 focus:text-cyan-400 text-[10px] font-mono px-2 py-1 outline-none transition-all w-64 text-center"
+                  placeholder="http://localhost:3001"
+                />
+              </div>
+            </div>
             <button onClick={runAudit} disabled={loading}
               className="group w-full relative overflow-hidden bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-900 disabled:cursor-not-allowed text-black font-black text-xl py-6 rounded-[24px] transition-all shadow-2xl shadow-cyan-500/20">
               <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
