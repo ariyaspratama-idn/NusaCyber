@@ -17,8 +17,21 @@ const pool = mysql.createPool({
 });
 
 async function initDb() {
-  const connection = await pool.getConnection();
+  const config = {
+    host: process.env.TIDB_HOST || 'localhost',
+    port: process.env.TIDB_PORT || 4000,
+    user: process.env.TIDB_USER || 'root',
+    password: process.env.TIDB_PASSWORD || '',
+    ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: true }
+  };
+
   try {
+    const tempConn = await mysql.createConnection(config);
+    await tempConn.query(`CREATE DATABASE IF NOT EXISTS \`${process.env.TIDB_DATABASE || 'nusacyber'}\``);
+    await tempConn.end();
+
+    const connection = await pool.getConnection();
+    await connection.query(`USE \`${process.env.TIDB_DATABASE || 'nusacyber'}\``);
     await connection.query(`
       CREATE TABLE IF NOT EXISTS audit_reports (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -34,10 +47,9 @@ async function initDb() {
       )
     `);
     console.log('✅ Database NusaCyber Siap Antar-Perangkat.');
+    connection.release();
   } catch (err) {
     console.error('❌ Gagal Inisialisasi Database:', err.message);
-  } finally {
-    connection.release();
   }
 }
 
