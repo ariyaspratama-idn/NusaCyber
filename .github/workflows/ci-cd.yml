@@ -18,12 +18,14 @@ jobs:
       with:
         node-version: '18.x'
         cache: 'npm'
-        cache-dependency-path: './dashboard/package-lock.json'
+        cache-dependency-path: 'dashboard/package-lock.json'
 
     - name: Install Dependencies
-      working-directory: ./dashboard
-      run: npm ci || npm install
+      run: |
+        cd dashboard
+        npm install
 
     - name: Ensure Successful Build
-      working-directory: ./dashboard
-      run: npm run build
+      run: |
+        cd dashboard
+        npm run build
