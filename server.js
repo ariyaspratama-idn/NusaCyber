@@ -5,6 +5,37 @@ const http = require('http');
 const https = require('https');
 const util = require('util');
 const { runLighthouse } = require('./tests/lighthouse-runner.js');
+const { pool, initDb } = require('./db/connection.js');
+
+// Kirim data audit ke TiDB Cloud
+async function saveAuditToDb(targetUrl, testType, report) {
+  try {
+    const lh = report.lighthouse;
+    const scores = lh ? lh.scores : { performance: 0, accessibility: 0, bestPractices: 0, seo: 0 };
+    const findingsCount = (lh?.detailedFindings?.length || 0) + (report.playwright?.failures?.length || 0) + (report.k6?.failures?.length || 0);
+
+    const query = `
+      INSERT INTO audit_reports 
+      (target_url, test_type, performance_score, accessibility_score, best_practices_score, seo_score, findings_count, report_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    const values = [
+      targetUrl, 
+      testType, 
+      scores.performance, 
+      scores.accessibility, 
+      scores.bestPractices, 
+      scores.seo, 
+      findingsCount, 
+      JSON.stringify(report)
+    ];
+
+    await pool.query(query, values);
+    console.log(`📡 Berhasil menyinkronkan laporan ${targetUrl} ke TiDB Cloud.`);
+  } catch (err) {
+    console.error('❌ Gagal sinkronisasi data ke Cloud:', err.message);
+  }
+}
 
 const execPromise = util.promisify(exec);
 const app = express();
@@ -274,6 +305,9 @@ app.post('/api/run-test', async (req, res) => {
     log(`  🎯 AUDIT SELESAI — Lihat Tab LAPORAN`);
     log(`════════════════════════════════════════`);
 
+    // AsyncTask: Simpan ke TiDB Cloud agar tidak memblokir respon ke user
+    saveAuditToDb(targetUrl, testType, finalReport);
+
     res.json({ output, report: finalReport });
   } catch (error) {
     res.status(500).json({ error: error.message, output: output + `\n❌ FATAL: ${error.message}` });
@@ -401,4 +435,7 @@ app.post('/api/run-chaos', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`🚀 NusaCyber Deep Auditor v3.2 — Port ${PORT}`));
+app.listen(PORT, async () => {
+  await initDb();
+  console.log(`🚀 NusaCyber Deep Auditor v3.2 — Port ${PORT}`);
+});
