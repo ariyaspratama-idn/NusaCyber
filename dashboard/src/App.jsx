@@ -332,6 +332,8 @@ function Report({ report, targetUrl }) {
 export default function App() {
   const [url, setUrl]           = useState('');
   const [backendUrl, setBackendUrl] = useState('http://localhost:3001');
+  const [auditMode, setAuditMode]   = useState('local'); // 'local' atau 'cloud'
+  const [githubToken, setGithubToken] = useState(''); // Token untuk Cloud Audit
   const [loading, setLoading]   = useState(false);
   const [output, setOutput]     = useState('');
   
@@ -343,9 +345,39 @@ export default function App() {
   useEffect(() => { const t = setTimeout(() => setBooting(false), 2200); return () => clearTimeout(t); }, []);
   useEffect(() => { if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight; }, [output]);
 
+  const triggerCloudAudit = async () => {
+    if (!githubToken) { alert('Masukkan GitHub Classic Token (PAT) untuk Cloud Audit!'); return; }
+    setOutput('📡 Mengirim perintah ke GitHub Cloud Auditor...\n   Mesin GitHub akan mulai dalam ~20 detik.\n');
+    try {
+      const res = await fetch('https://api.github.com/repos/ariyaspratama-idn/NusaCyber/dispatches', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `token ${githubToken}`,
+          'Accept': 'application/vnd.github.v3+json'
+        },
+        body: JSON.stringify({ event_type: 'run-audit', client_payload: { target_url: url, test_type: 'ultimate' } }),
+      });
+      if (res.ok) {
+        setOutput(p => p + '✅ PERINTAH DITERIMA! Menunggu hasil di Database TiDB Cloud...\n   (Proses ini memakan waktu 2-4 menit di server GitHub)\n');
+      } else {
+        const errData = await res.json();
+        throw new Error(errData.message || 'Gagal memicu GitHub! Cek Token Anda.');
+      }
+    } catch (e) {
+      setOutput(p => p + `\n❌ ERROR CLOUD: ${e.message}`);
+    }
+    setLoading(false);
+  };
+
   const runAudit = async () => {
     if (!url) { alert('Masukkan URL target!'); return; }
     setLoading(true); setReport(null); setTab('terminal');
+
+    if (auditMode === 'cloud') {
+      triggerCloudAudit();
+      return;
+    }
+
     setOutput('🚀 Menghubungkan ke audit engine...\n   Mohon tunggu, proses ini memerlukan 1-3 menit.\n');
     try {
       const res = await fetch(`${backendUrl}/api/run-test`, {
@@ -399,19 +431,37 @@ export default function App() {
             <p className="text-gray-400 text-sm">Lighthouse · Axe-core · Playwright · k6 — detail penuh, langsung bisa diperbaiki</p>
           </div>
           <div className="max-w-3xl mx-auto space-y-4">
-            <div className="relative">
-              <input type="url" value={url} onChange={e => setUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && runAudit()}
-                className="w-full bg-black/60 border-2 border-cyan-950 focus:border-cyan-500 rounded-2xl px-8 py-5 text-lg text-cyan-100 placeholder-cyan-950 outline-none transition-all font-mono text-center"
-                placeholder="https://website-anda.com"
-              />
-              <div className="flex items-center justify-center gap-2 mt-4">
-                <span className="text-[10px] font-black text-gray-700 uppercase tracking-widest">Auditor Engine:</span>
-                <input type="text" value={backendUrl} onChange={e => setBackendUrl(e.target.value)}
-                  className="bg-transparent border-b border-cyan-500/10 hover:border-cyan-500/40 text-cyan-500/50 focus:text-cyan-400 text-[10px] font-mono px-2 py-1 outline-none transition-all w-64 text-center"
-                  placeholder="http://localhost:3001"
+             <div className="flex items-center justify-center gap-4 py-2 border-b border-white/5 bg-black/20 rounded-t-3xl">
+                <button onClick={()=>setAuditMode('local')} className={`text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full transition-all ${auditMode==='local'?'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20':'text-gray-600'}`}>Local Engine</button>
+                <button onClick={()=>setAuditMode('cloud')} className={`text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full transition-all ${auditMode==='cloud'?'bg-purple-600 text-white shadow-lg shadow-purple-500/20':'text-gray-600'}`}>Cloud Engine (Free)</button>
+             </div>
+
+             <div className="relative group">
+               <input type="url" value={url} onChange={e => setUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && runAudit()}
+                  className="w-full bg-black/80 border-2 border-cyan-500/50 focus:border-cyan-400 rounded-b-[32px] rounded-t-none px-8 py-6 text-xl text-white placeholder-gray-600 outline-none transition-all font-mono text-center shadow-[0_0_30px_rgba(6,182,212,0.15)]"
+                  placeholder="https://target-anda.com"
                 />
-              </div>
-            </div>
+             </div>
+
+             <div className="flex flex-col items-center justify-center gap-2">
+                {auditMode === 'local' ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-black text-gray-700 uppercase tracking-widest">Local Auditor:</span>
+                    <input type="text" value={backendUrl} onChange={e => setBackendUrl(e.target.value)}
+                      className="bg-transparent border-b border-cyan-500/10 hover:border-cyan-500/40 text-cyan-500/50 focus:text-cyan-400 text-[10px] font-mono px-2 py-1 outline-none transition-all w-64 text-center"
+                      placeholder="http://localhost:3001"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-black text-purple-700 uppercase tracking-widest">GitHub PAT Token:</span>
+                    <input type="password" value={githubToken} onChange={e => setGithubToken(e.target.value)}
+                      className="bg-transparent border-b border-purple-500/10 hover:border-purple-500/40 text-purple-500/50 focus:text-purple-400 text-[10px] font-mono px-2 py-1 outline-none transition-all w-64 text-center"
+                      placeholder="ghp_xxxxxxxxxxxx"
+                    />
+                  </div>
+                )}
+             </div>
             <button onClick={runAudit} disabled={loading}
               className="group w-full relative overflow-hidden bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-900 disabled:cursor-not-allowed text-black font-black text-xl py-6 rounded-[24px] transition-all shadow-2xl shadow-cyan-500/20">
               <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>

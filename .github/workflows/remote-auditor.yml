@@ -1,0 +1,34 @@
+name: 📡 NusaCyber Cloud Auditor
+
+on:
+  repository_dispatch:
+    types: [run-audit]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Google Chrome (for Lighthouse)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+
+      - name: Install Dependencies
+        run: npm install mysql2 dotenv puppeteer lighthouse
+
+      - name: 🚀 Execute Cloud Audit
+        env:
+          TIDB_HOST: ${{ secrets.TIDB_HOST }}
+          TIDB_USER: ${{ secrets.TIDB_USER }}
+          TIDB_PASSWORD: ${{ secrets.TIDB_PASSWORD }}
+          TIDB_DATABASE: ${{ secrets.TIDB_DATABASE }}
+          TARGET_URL: ${{ github.event.client_payload.target_url }}
+          TEST_TYPE: ${{ github.event.client_payload.test_type }}
+        run: node scripts/cloud-auditor.js
