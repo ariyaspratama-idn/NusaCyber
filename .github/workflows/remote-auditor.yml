@@ -15,9 +15,22 @@ jobs:
         with:
           node-version: '18'
 
+      - name: 🔍 Debug - Cek Environment
+        env:
+          TIDB_HOST: ${{ secrets.TIDB_HOST }}
+          TARGET_URL: ${{ github.event.client_payload.target_url }}
+        run: |
+          echo "=== Debug Info ==="
+          echo "TIDB_HOST is set: $([[ -n '$TIDB_HOST' ]] && echo 'YES' || echo 'NO - BELUM DIISI!')"
+          echo "TARGET_URL: $TARGET_URL"
+          echo "Node version: $(node --version)"
+          echo "Working dir: $(pwd)"
+          echo "Files present: $(ls)"
+          echo "=================="
+
       - name: Install Google Chrome (for Lighthouse)
         run: |
-          sudo apt-get update
+          sudo apt-get update -qq
           sudo apt-get install -y google-chrome-stable
 
       - name: Install Dependencies
@@ -29,6 +42,7 @@ jobs:
           TIDB_USER: ${{ secrets.TIDB_USER }}
           TIDB_PASSWORD: ${{ secrets.TIDB_PASSWORD }}
           TIDB_DATABASE: ${{ secrets.TIDB_DATABASE }}
+          TIDB_PORT: ${{ secrets.TIDB_PORT }}
           TARGET_URL: ${{ github.event.client_payload.target_url }}
           TEST_TYPE: ${{ github.event.client_payload.test_type }}
         run: node scripts/cloud-auditor.js
