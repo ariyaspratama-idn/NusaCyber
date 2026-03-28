@@ -347,21 +347,19 @@ export default function App() {
 
   const triggerCloudAudit = async () => {
     if (!githubToken) { alert('Masukkan GitHub Classic Token (PAT) untuk Cloud Audit!'); return; }
-    setOutput('📡 Mengirim perintah ke GitHub Cloud Auditor...\n   Mesin GitHub akan mulai dalam ~20 detik.\n');
+    setOutput('📡 Mengirim perintah ke Cloud Auditor (Proxy)...\n   Mesin GitHub akan mulai dalam ~20 detik.\n');
     try {
-      const res = await fetch('https://api.github.com/repos/ariyaspratama-idn/NusaCyber/dispatches', {
+      // Panggil proxy serverless kita sendiri di Vercel untuk menghindari CORS
+      const res = await fetch('/api/dispatch', {
         method: 'POST',
-        headers: { 
-          'Authorization': `token ${githubToken}`,
-          'Accept': 'application/vnd.github.v3+json'
-        },
-        body: JSON.stringify({ event_type: 'run-audit', client_payload: { target_url: url, test_type: 'ultimate' } }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: githubToken, payload: { target_url: url, test_type: 'ultimate' } }),
       });
       if (res.ok) {
         setOutput(p => p + '✅ PERINTAH DITERIMA! Menunggu hasil di Database TiDB Cloud...\n   (Proses ini memakan waktu 2-4 menit di server GitHub)\n');
       } else {
         const errData = await res.json();
-        throw new Error(errData.message || 'Gagal memicu GitHub! Cek Token Anda.');
+        throw new Error(errData.message || 'Gagal memicu Cloud Audit! Cek Token Anda.');
       }
     } catch (e) {
       setOutput(p => p + `\n❌ ERROR CLOUD: ${e.message}`);
