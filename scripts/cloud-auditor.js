@@ -11,6 +11,13 @@ dotenv.config();
 const targetUrl = process.argv[2] || process.env.TARGET_URL;
 const testType = process.argv[3] || 'ultimate';
 
+// Validasi Secrets agar user dapat pesan error yang jelas di log GitHub
+if (!process.env.TIDB_HOST) {
+  console.error("❌ ERROR: GitHub Secrets (TIDB_HOST) belum diisi!");
+  console.error("👉 Silakan buka Settings -> Secrets -> Actions di GitHub Anda dan masukkan data .env.");
+  process.exit(1);
+}
+
 async function runCloudAudit() {
   console.log(`📡 Memulai Remote Audit untuk: ${targetUrl}`);
   
