@@ -332,47 +332,101 @@ function Report({ report, targetUrl }) {
 export default function App() {
   const [url, setUrl]           = useState('');
   const [backendUrl, setBackendUrl] = useState('http://localhost:3001');
-  const [auditMode, setAuditMode]   = useState('local'); // 'local' atau 'cloud'
-  const [githubToken, setGithubToken] = useState(''); // Token untuk Cloud Audit
+  const [auditMode, setAuditMode]   = useState('local');
+  const [githubToken, setGithubToken] = useState('');
   const [loading, setLoading]   = useState(false);
+  const [cloudStatus, setCloudStatus] = useState(null); // null | 'waiting' | 'running' | 'success' | 'failure'
+  const [cloudElapsed, setCloudElapsed] = useState(0);
   const [output, setOutput]     = useState('');
-  
   const [report, setReport]     = useState(null);
   const [tab, setTab]           = useState('terminal');
   const [booting, setBooting]   = useState(true);
-  const termRef = useRef(null);
+  const termRef  = useRef(null);
+  const pollRef  = useRef(null);
+  const timerRef = useRef(null);
 
   useEffect(() => { const t = setTimeout(() => setBooting(false), 2200); return () => clearTimeout(t); }, []);
   useEffect(() => { if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight; }, [output]);
 
+  const stopPolling = () => {
+    if (pollRef.current)  clearInterval(pollRef.current);
+    if (timerRef.current) clearInterval(timerRef.current);
+  };
+
+  const pollGitHubStatus = (token) => {
+    const start = Date.now();
+    timerRef.current = setInterval(() => {
+      setCloudElapsed(Math.floor((Date.now() - start) / 1000));
+    }, 1000);
+
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(
+          'https://api.github.com/repos/ariyaspratama-idn/NusaCyber/actions/runs?event=repository_dispatch&per_page=1',
+          { headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' } }
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        const run  = data.workflow_runs?.[0];
+        if (!run) return;
+
+        if (run.status === 'queued' || run.status === 'in_progress') {
+          setCloudStatus('running');
+          setOutput(p => {
+            const line = `⏳ [${new Date().toLocaleTimeString()}] Status: ${run.status}...\n`;
+            return p.includes(line) ? p : p + line;
+          });
+        } else if (run.status === 'completed') {
+          stopPolling();
+          setLoading(false);
+          if (run.conclusion === 'success') {
+            setCloudStatus('success');
+            setOutput(p => p + `\n✅ AUDIT SELESAI! Status: Berhasil.\n   Lihat laporan di tab Laporan Detail.\n`);
+          } else {
+            setCloudStatus('failure');
+            setOutput(p => p + `\n❌ AUDIT GAGAL! Conclusion: ${run.conclusion}\n   Klik link berikut untuk lihat error log:\n   https://github.com/ariyaspratama-idn/NusaCyber/actions/runs/${run.id}\n`);
+          }
+        }
+      } catch (_) {}
+    }, 8000);
+  };
+
   const triggerCloudAudit = async () => {
     if (!githubToken) { alert('Masukkan GitHub Classic Token (PAT) untuk Cloud Audit!'); return; }
-    setOutput('📡 Mengirim perintah ke Cloud Auditor (Proxy)...\n   Mesin GitHub akan mulai dalam ~20 detik.\n');
+    if (!url)         { alert('Masukkan URL target!'); return; }
+    setCloudStatus('waiting');
+    setCloudElapsed(0);
+    setOutput('📡 Mengirim perintah ke Cloud Auditor...\n   Mesin GitHub akan mulai dalam ~20 detik.\n');
     try {
-      // Panggil proxy serverless kita sendiri di Vercel untuk menghindari CORS
       const res = await fetch('/api/dispatch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: githubToken, payload: { target_url: url, test_type: 'ultimate' } }),
       });
       if (res.ok) {
-        setOutput(p => p + '✅ PERINTAH DITERIMA! Menunggu hasil di Database TiDB Cloud...\n   (Proses ini memakan waktu 2-4 menit di server GitHub)\n\n   👉 LIHAT PROGRES NYATA DI SINI (KLIK):\n   https://github.com/ariyaspratama-idn/NusaCyber/actions\n');
+        setCloudStatus('running');
+        setOutput(p => p + '✅ Perintah diterima! Memantau status eksekusi...\n');
+        pollGitHubStatus(githubToken);
       } else {
         const errData = await res.json();
         throw new Error(errData.message || 'Gagal memicu Cloud Audit! Cek Token Anda.');
       }
     } catch (e) {
-      setOutput(p => p + `\n❌ ERROR CLOUD: ${e.message}`);
+      setCloudStatus('failure');
+      setOutput(p => p + `\n❌ ERROR: ${e.message}`);
+      setLoading(false);
+      stopPolling();
     }
-    setLoading(false);
   };
 
   const runAudit = async () => {
     if (!url) { alert('Masukkan URL target!'); return; }
+    stopPolling();
+    setCloudStatus(null);
     setLoading(true); setReport(null); setTab('terminal');
 
     if (auditMode === 'cloud') {
-      triggerCloudAudit();
+      await triggerCloudAudit();
       return;
     }
 
@@ -399,6 +453,42 @@ export default function App() {
       <div className="w-20 h-20 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin mb-8"></div>
       <h1 className="text-4xl font-black italic uppercase text-white">NusaCyber <span className="text-cyan-500">v3.2</span></h1>
       <p className="text-cyan-400 text-[10px] font-mono tracking-[0.5em] mt-4 animate-pulse uppercase">Booting Deep Audit Engine...</p>
+    </div>
+  );
+
+  // Cloud Audit Loading Overlay - tampil selama audit berjalan di GitHub
+  if (loading && auditMode === 'cloud' && cloudStatus && cloudStatus !== 'success' && cloudStatus !== 'failure') return (
+    <div className="fixed inset-0 bg-[#020617]/95 backdrop-blur flex flex-col items-center justify-center z-50 p-6">
+      <div className="relative w-32 h-32 mb-8">
+        <div className="absolute inset-0 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin"></div>
+        <div className="absolute inset-4 border-4 border-purple-500/20 border-b-purple-500 rounded-full animate-spin" style={{animationDirection:'reverse',animationDuration:'1.5s'}}></div>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-3xl">📡</span>
+        </div>
+      </div>
+      <h2 className="text-2xl font-black italic uppercase text-white mb-2">Audit Sedang Berjalan</h2>
+      <p className="text-cyan-400 text-sm font-mono mb-1">
+        Status: <span className={cloudStatus === 'running' ? 'text-green-400' : 'text-yellow-400'}>
+          {cloudStatus === 'running' ? '🟢 IN PROGRESS di GitHub' : '🟡 Menunggu antrian...'}
+        </span>
+      </p>
+      <p className="text-white/40 text-xs font-mono mb-6">
+        Waktu berjalan: <span className="text-white/70">{Math.floor(cloudElapsed/60).toString().padStart(2,'0')}:{(cloudElapsed%60).toString().padStart(2,'0')}</span> / estimasi 3-5 menit
+      </p>
+      <div className="bg-black/30 border border-white/10 rounded-xl px-6 py-4 max-w-md w-full mb-6">
+        <p className="text-[10px] text-white/50 font-mono mb-2 uppercase tracking-widest">System Output</p>
+        <div className="text-xs font-mono text-green-400 whitespace-pre-wrap max-h-40 overflow-y-auto" ref={termRef}>
+          {output || '$ Memulai audit...'}
+        </div>
+      </div>
+      <a href="https://github.com/ariyaspratama-idn/NusaCyber/actions" target="_blank" rel="noreferrer"
+        className="text-cyan-400 hover:text-cyan-300 text-xs font-mono underline mb-4">
+        👉 Pantau log langsung di GitHub Actions
+      </a>
+      <button onClick={() => { stopPolling(); setLoading(false); setCloudStatus(null); setOutput(p => p + '\n⚠️ Audit dibatalkan oleh pengguna.\n'); }}
+        className="text-xs text-red-400/70 hover:text-red-400 font-mono border border-red-500/20 hover:border-red-500/50 px-4 py-2 rounded-lg transition-all">
+        ✕ Batalkan Pemantauan
+      </button>
     </div>
   );
 
