@@ -356,7 +356,7 @@ export default function App() {
         body: JSON.stringify({ token: githubToken, payload: { target_url: url, test_type: 'ultimate' } }),
       });
       if (res.ok) {
-        setOutput(p => p + '✅ PERINTAH DITERIMA! Menunggu hasil di Database TiDB Cloud...\n   (Proses ini memakan waktu 2-4 menit di server GitHub)\n');
+        setOutput(p => p + '✅ PERINTAH DITERIMA! Menunggu hasil di Database TiDB Cloud...\n   (Proses ini memakan waktu 2-4 menit di server GitHub)\n\n   👉 LIHAT PROGRES NYATA DI SINI (KLIK):\n   https://github.com/ariyaspratama-idn/NusaCyber/actions\n');
       } else {
         const errData = await res.json();
         throw new Error(errData.message || 'Gagal memicu Cloud Audit! Cek Token Anda.');

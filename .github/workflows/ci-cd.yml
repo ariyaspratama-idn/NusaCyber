@@ -16,8 +16,7 @@ jobs:
     - name: Install Dependencies
       run: |
         cd dashboard
-        npm ci
-
+        npm install
 
     - name: Ensure Successful Build
       run: |
