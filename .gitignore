@@ -4,6 +4,8 @@ node_modules
 tests/.temp-profiles
 dashboard/node_modules
 dashboard/dist
-package-lock.json
+# package-lock.json dihapus agar CI/CD bisa jalan
+# package-lock.json
+
 yalc.lock
 .yalc
