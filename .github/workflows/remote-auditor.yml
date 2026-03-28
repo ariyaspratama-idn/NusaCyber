@@ -21,7 +21,7 @@ jobs:
           sudo apt-get install -y google-chrome-stable
 
       - name: Install Dependencies
-        run: npm install mysql2 dotenv puppeteer lighthouse chrome-launcher
+        run: npm install
 
       - name: 🚀 Execute Cloud Audit
         env:
